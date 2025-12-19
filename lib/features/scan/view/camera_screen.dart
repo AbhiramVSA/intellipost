@@ -181,31 +181,6 @@ class _CameraScreenState extends State<CameraScreen>
             onPressed: () => Navigator.pop(context),
           ),
           const Spacer(),
-          // High-speed scan indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.cardDark.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.bolt_rounded,
-                  size: 16,
-                  color: AppColors.accent,
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.star_rounded,
-                  size: 12,
-                  color: AppColors.accent,
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
           // QR scanner button
           _CircleButton(
             icon: Icons.qr_code_scanner_rounded,
@@ -236,57 +211,32 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Widget _buildModeSelector(ScanViewModel viewModel) {
-    final modes = [
-      ScanMode.whiteboard,
-      ScanMode.book,
-      ScanMode.document,
-      ScanMode.idCard,
-      ScanMode.businessCard,
-    ];
-
     return Container(
       height: 40,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: modes.length,
-        itemBuilder: (context, index) {
-          final mode = modes[index];
-          final isSelected = viewModel.scanMode == mode;
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: GestureDetector(
-              onTap: () => viewModel.setScanMode(mode),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    mode.label,
-                    style: TextStyle(
-                      color: isSelected
-                          ? AppColors.accent
-                          : AppColors.textSecondary,
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  if (isSelected)
-                    Container(
-                      width: 4,
-                      height: 4,
-                      decoration: const BoxDecoration(
-                        color: AppColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                ],
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              ScanMode.postCard.label,
+              style: TextStyle(
+                color: AppColors.primary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
               ),
             ),
-          );
-        },
+            const SizedBox(height: 4),
+            Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

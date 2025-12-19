@@ -66,12 +66,28 @@ class StorageService {
     return user?.isLoggedIn ?? false;
   }
 
+  /// Get auth token
+  String? getAuthToken() {
+    _checkInit();
+    final user = getUser();
+    return user?.authToken;
+  }
+
+  /// Save auth token to current user
+  Future<void> saveAuthToken(String token) async {
+    _checkInit();
+    final user = getUser();
+    if (user != null) {
+      await saveUser(user.copyWith(authToken: token));
+    }
+  }
+
   /// Logout user
   Future<void> logout() async {
     _checkInit();
     final user = getUser();
     if (user != null) {
-      await saveUser(user.copyWith(isLoggedIn: false));
+      await saveUser(user.copyWith(isLoggedIn: false, authToken: null));
     }
   }
 

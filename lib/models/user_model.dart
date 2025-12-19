@@ -23,6 +23,12 @@ class UserModel extends HiveObject {
   @HiveField(5)
   final bool isLoggedIn;
 
+  @HiveField(6)
+  final String? username;
+
+  @HiveField(7)
+  final String? authToken;
+
   UserModel({
     required this.id,
     required this.name,
@@ -30,6 +36,8 @@ class UserModel extends HiveObject {
     required this.email,
     required this.createdAt,
     this.isLoggedIn = false,
+    this.username,
+    this.authToken,
   });
 
   /// Create a copy with updated fields
@@ -40,6 +48,8 @@ class UserModel extends HiveObject {
     String? email,
     DateTime? createdAt,
     bool? isLoggedIn,
+    String? username,
+    String? authToken,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -48,6 +58,8 @@ class UserModel extends HiveObject {
       email: email ?? this.email,
       createdAt: createdAt ?? this.createdAt,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
+      username: username ?? this.username,
+      authToken: authToken ?? this.authToken,
     );
   }
 
@@ -60,6 +72,8 @@ class UserModel extends HiveObject {
       'email': email,
       'createdAt': createdAt.toIso8601String(),
       'isLoggedIn': isLoggedIn,
+      'username': username,
+      'authToken': authToken,
     };
   }
 
@@ -67,17 +81,21 @@ class UserModel extends HiveObject {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'] as String,
-      name: json['name'] as String,
-      phone: json['phone'] as String,
+      name: json['name'] as String? ?? json['username'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
       email: json['email'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       isLoggedIn: json['isLoggedIn'] as bool? ?? false,
+      username: json['username'] as String?,
+      authToken: json['authToken'] as String?,
     );
   }
 
   @override
   String toString() {
-    return 'UserModel(id: $id, name: $name, phone: $phone, email: $email)';
+    return 'UserModel(id: $id, name: $name, username: $username, email: $email)';
   }
 }
 
@@ -99,13 +117,15 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       email: fields[3] as String,
       createdAt: fields[4] as DateTime,
       isLoggedIn: fields[5] as bool? ?? false,
+      username: fields[6] as String?,
+      authToken: fields[7] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, UserModel obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -117,7 +137,11 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..writeByte(4)
       ..write(obj.createdAt)
       ..writeByte(5)
-      ..write(obj.isLoggedIn);
+      ..write(obj.isLoggedIn)
+      ..writeByte(6)
+      ..write(obj.username)
+      ..writeByte(7)
+      ..write(obj.authToken);
   }
 
   @override

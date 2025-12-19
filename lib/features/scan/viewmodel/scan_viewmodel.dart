@@ -19,7 +19,7 @@ class ScanViewModel extends ChangeNotifier {
         _storageService = storageService;
 
   // State
-  ScanMode _scanMode = ScanMode.document;
+  ScanMode _scanMode = ScanMode.postCard;
   File? _capturedImage;
   bool _isProcessing = false;
   bool _isSubmitting = false;
@@ -147,7 +147,7 @@ class ScanViewModel extends ChangeNotifier {
     _errorMessage = null;
     _lastScanResult = null;
     _processingProgress = 0.0;
-    _scanMode = ScanMode.document;
+    _scanMode = ScanMode.postCard;
     notifyListeners();
   }
 
@@ -160,12 +160,7 @@ class ScanViewModel extends ChangeNotifier {
 
 /// Scan mode options
 enum ScanMode {
-  document('Document'),
-  letter('Letter'),
-  whiteboard('Whiteboard'),
-  book('Book'),
-  idCard('ID card'),
-  businessCard('Business card');
+  postCard('Post card');
 
   final String label;
   const ScanMode(this.label);

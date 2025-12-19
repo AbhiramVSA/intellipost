@@ -21,21 +21,9 @@ class _ScanOptionsSheetState extends State<ScanOptionsSheet>
 
   final List<_ScanOption> _options = [
     _ScanOption(
-      icon: Icons.merge_type_rounded,
-      label: 'Combine files',
-      isPremium: true,
-      onTap: () {},
-    ),
-    _ScanOption(
       icon: Icons.photo_library_rounded,
       label: 'Create from photos',
       isPremium: false,
-      onTap: () {},
-    ),
-    _ScanOption(
-      icon: Icons.bolt_rounded,
-      label: 'High-speed scan',
-      isPremium: true,
       onTap: () {},
     ),
     _ScanOption(

@@ -114,26 +114,16 @@ class _NavBarItemState extends State<_NavBarItem>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: widget.isSelected
-                      ? AppColors.primary.withValues(alpha: 0.2)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  widget.icon,
-                  color: widget.isSelected
-                      ? AppColors.primary
-                      : AppColors.textMuted,
-                  size: 22,
-                ),
+              Icon(
+                widget.icon,
+                color: widget.isSelected
+                    ? AppColors.primary
+                    : AppColors.textMuted,
+                size: 24,
               ),
               const SizedBox(height: 2),
               Text(
@@ -144,7 +134,7 @@ class _NavBarItemState extends State<_NavBarItem>
                       : AppColors.textMuted,
                   fontWeight:
                       widget.isSelected ? FontWeight.w600 : FontWeight.normal,
-                  fontSize: 11,
+                  fontSize: 10,
                 ),
               ),
             ],

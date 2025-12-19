@@ -34,7 +34,9 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     _currentUser = _storageService.getUser();
-    _recentScans = _storageService.getAllScans();
+    // TODO: Replace with API call to fetch scans from server
+    // For now, show empty list until endpoint is provided
+    _recentScans = [];
 
     _isLoading = false;
     notifyListeners();

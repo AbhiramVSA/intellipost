@@ -34,7 +34,9 @@ class HistoryViewModel extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    _scans = _storageService.getAllScans();
+    // TODO: Replace with API call to fetch scans from server
+    // For now, show empty list until endpoint is provided
+    _scans = [];
     _applyFiltersAndSort();
 
     _isLoading = false;

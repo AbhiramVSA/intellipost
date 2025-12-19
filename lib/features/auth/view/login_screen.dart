@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../viewmodel/auth_viewmodel.dart';
 
-/// Login Screen - Clean modern form design
+/// Auth Screen - Supports both Login and Registration
 /// 
-/// Design Note: Inspired by the Uiverse.io clean form with floating labels,
-/// adapted to match our purple/violet color scheme for a seamless UI.
+/// Design Note: Clean modern form design with floating labels,
+/// using purple/violet color scheme for a seamless UI.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -24,9 +23,10 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<Offset> _slideAnimation;
 
   // Focus nodes
-  final _nameFocus = FocusNode();
-  final _phoneFocus = FocusNode();
+  final _usernameFocus = FocusNode();
   final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmPasswordFocus = FocusNode();
 
   @override
   void initState() {
@@ -63,9 +63,10 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _entryController.dispose();
-    _nameFocus.dispose();
-    _phoneFocus.dispose();
+    _usernameFocus.dispose();
     _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmPasswordFocus.dispose();
     super.dispose();
   }
 
@@ -166,43 +167,31 @@ class _LoginScreenState extends State<LoginScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Title with animated dot
-            _buildFormTitle(),
+            _buildFormTitle(viewModel),
             const SizedBox(height: 8),
             Text(
-              'Sign up now and get full access to our app.',
+              viewModel.isLoginMode
+                  ? 'Welcome back! Please login to continue.'
+                  : 'Sign up now and get full access to our app.',
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textSecondary.withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Name field
-            _FloatingLabelField(
-              controller: viewModel.nameController,
-              focusNode: _nameFocus,
-              label: 'Full Name',
-              keyboardType: TextInputType.name,
-              textInputAction: TextInputAction.next,
-              validator: viewModel.validateName,
-              onFieldSubmitted: (_) => _phoneFocus.requestFocus(),
-            ),
-            const SizedBox(height: 16),
-
-            // Phone field
-            _FloatingLabelField(
-              controller: viewModel.phoneController,
-              focusNode: _phoneFocus,
-              label: 'Phone Number',
-              keyboardType: TextInputType.phone,
-              textInputAction: TextInputAction.next,
-              validator: viewModel.validatePhone,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(10),
-              ],
-              onFieldSubmitted: (_) => _emailFocus.requestFocus(),
-            ),
-            const SizedBox(height: 16),
+            // Username field (only for registration)
+            if (viewModel.isRegisterMode) ...[
+              _FloatingLabelField(
+                controller: viewModel.usernameController,
+                focusNode: _usernameFocus,
+                label: 'Username',
+                keyboardType: TextInputType.text,
+                textInputAction: TextInputAction.next,
+                validator: viewModel.validateUsername,
+                onFieldSubmitted: (_) => _emailFocus.requestFocus(),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Email field
             _FloatingLabelField(
@@ -210,11 +199,81 @@ class _LoginScreenState extends State<LoginScreen>
               focusNode: _emailFocus,
               label: 'Email Address',
               keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
+              textInputAction: TextInputAction.next,
               validator: viewModel.validateEmail,
-              onFieldSubmitted: (_) => _handleLogin(viewModel),
+              onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            // Password field
+            _PasswordField(
+              controller: viewModel.passwordController,
+              focusNode: _passwordFocus,
+              label: 'Password',
+              obscureText: viewModel.obscurePassword,
+              onToggleVisibility: viewModel.togglePasswordVisibility,
+              textInputAction: viewModel.isRegisterMode 
+                  ? TextInputAction.next 
+                  : TextInputAction.done,
+              validator: viewModel.validatePassword,
+              onFieldSubmitted: (_) {
+                if (viewModel.isRegisterMode) {
+                  _confirmPasswordFocus.requestFocus();
+                } else {
+                  _handleSubmit(viewModel);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Confirm Password field (only for registration)
+            if (viewModel.isRegisterMode) ...[
+              _PasswordField(
+                controller: viewModel.confirmPasswordController,
+                focusNode: _confirmPasswordFocus,
+                label: 'Confirm Password',
+                obscureText: viewModel.obscureConfirmPassword,
+                onToggleVisibility: viewModel.toggleConfirmPasswordVisibility,
+                textInputAction: TextInputAction.done,
+                validator: viewModel.validateConfirmPassword,
+                onFieldSubmitted: (_) => _handleSubmit(viewModel),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Success message
+            if (viewModel.successMessage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.green.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: Colors.green,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          viewModel.successMessage!,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Error message
             if (viewModel.errorMessage != null)
@@ -253,11 +312,39 @@ class _LoginScreenState extends State<LoginScreen>
             // Submit button
             _SubmitButton(
               isLoading: viewModel.isLoading,
-              onPressed: () => _handleLogin(viewModel),
+              label: viewModel.isLoginMode ? 'Login' : 'Create Account',
+              onPressed: () => _handleSubmit(viewModel),
             ),
             const SizedBox(height: 16),
 
+            // Toggle auth mode
+            Center(
+              child: TextButton(
+                onPressed: viewModel.isLoading ? null : viewModel.toggleAuthMode,
+                child: Text.rich(
+                  TextSpan(
+                    text: viewModel.isLoginMode 
+                        ? "Don't have an account? " 
+                        : "Already have an account? ",
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textMuted,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: viewModel.isLoginMode ? 'Sign Up' : 'Login',
+                        style: TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
             // Footer text
+            const SizedBox(height: 8),
             Center(
               child: Text.rich(
                 TextSpan(
@@ -284,14 +371,14 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _buildFormTitle() {
+  Widget _buildFormTitle(AuthViewModel viewModel) {
     return Row(
       children: [
         // Animated pulsing dot
         const _PulsingDot(),
         const SizedBox(width: 12),
         Text(
-          'Register',
+          viewModel.isLoginMode ? 'Login' : 'Register',
           style: AppTextStyles.h2.copyWith(
             color: AppColors.primary,
             fontWeight: FontWeight.w600,
@@ -302,7 +389,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Future<void> _handleLogin(AuthViewModel viewModel) async {
+  Future<void> _handleSubmit(AuthViewModel viewModel) async {
     if (_formKey.currentState?.validate() ?? false) {
       final success = await viewModel.login();
       if (success && mounted) {
@@ -392,7 +479,7 @@ class _PulsingDotState extends State<_PulsingDot>
   }
 }
 
-/// Floating label text field matching the Uiverse.io design
+/// Floating label text field
 class _FloatingLabelField extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -400,7 +487,6 @@ class _FloatingLabelField extends StatefulWidget {
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
   final String? Function(String?)? validator;
-  final List<TextInputFormatter>? inputFormatters;
   final void Function(String)? onFieldSubmitted;
 
   const _FloatingLabelField({
@@ -410,7 +496,6 @@ class _FloatingLabelField extends StatefulWidget {
     this.keyboardType,
     this.textInputAction,
     this.validator,
-    this.inputFormatters,
     this.onFieldSubmitted,
   });
 
@@ -458,14 +543,12 @@ class _FloatingLabelFieldState extends State<_FloatingLabelField> {
 
     return Stack(
       children: [
-        // Input field
         TextFormField(
           controller: widget.controller,
           focusNode: widget.focusNode,
           keyboardType: widget.keyboardType,
           textInputAction: widget.textInputAction,
           validator: widget.validator,
-          inputFormatters: widget.inputFormatters,
           onFieldSubmitted: widget.onFieldSubmitted,
           style: const TextStyle(
             color: AppColors.textPrimary,
@@ -510,7 +593,161 @@ class _FloatingLabelFieldState extends State<_FloatingLabelField> {
             ),
           ),
         ),
-        // Floating label
+        Positioned(
+          left: 16,
+          top: 0,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            transform: Matrix4.translationValues(
+              0,
+              isFloating ? 4 : 16,
+              0,
+            ),
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                color: _isFocused
+                    ? AppColors.primary
+                    : AppColors.textSecondary.withValues(alpha: 0.5),
+                fontSize: isFloating ? 11 : 15,
+                fontWeight: isFloating ? FontWeight.w600 : FontWeight.normal,
+              ),
+              child: Text(widget.label),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Password field with visibility toggle
+class _PasswordField extends StatefulWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String label;
+  final bool obscureText;
+  final VoidCallback onToggleVisibility;
+  final TextInputAction? textInputAction;
+  final String? Function(String?)? validator;
+  final void Function(String)? onFieldSubmitted;
+
+  const _PasswordField({
+    required this.controller,
+    required this.focusNode,
+    required this.label,
+    required this.obscureText,
+    required this.onToggleVisibility,
+    this.textInputAction,
+    this.validator,
+    this.onFieldSubmitted,
+  });
+
+  @override
+  State<_PasswordField> createState() => _PasswordFieldState();
+}
+
+class _PasswordFieldState extends State<_PasswordField> {
+  bool _isFocused = false;
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_onFocusChange);
+    widget.controller.addListener(_onTextChange);
+    _hasText = widget.controller.text.isNotEmpty;
+  }
+
+  void _onFocusChange() {
+    setState(() {
+      _isFocused = widget.focusNode.hasFocus;
+    });
+  }
+
+  void _onTextChange() {
+    final hasText = widget.controller.text.isNotEmpty;
+    if (hasText != _hasText) {
+      setState(() {
+        _hasText = hasText;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_onFocusChange);
+    widget.controller.removeListener(_onTextChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isFloating = _isFocused || _hasText;
+
+    return Stack(
+      children: [
+        TextFormField(
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          obscureText: widget.obscureText,
+          textInputAction: widget.textInputAction,
+          validator: widget.validator,
+          onFieldSubmitted: widget.onFieldSubmitted,
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 16,
+          ),
+          cursorColor: AppColors.primary,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.fromLTRB(16, 24, 48, 12),
+            filled: true,
+            fillColor: AppColors.cardDark,
+            suffixIcon: IconButton(
+              icon: Icon(
+                widget.obscureText
+                    ? Icons.visibility_off_rounded
+                    : Icons.visibility_rounded,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
+              onPressed: widget.onToggleVisibility,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: AppColors.textMuted.withValues(alpha: 0.3),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: AppColors.textMuted.withValues(alpha: 0.3),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.primary,
+                width: 1.5,
+              ),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.error,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: AppColors.error,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
         Positioned(
           left: 16,
           top: 0,
@@ -543,10 +780,12 @@ class _FloatingLabelFieldState extends State<_FloatingLabelField> {
 /// Submit button with loading state
 class _SubmitButton extends StatelessWidget {
   final bool isLoading;
+  final String label;
   final VoidCallback onPressed;
 
   const _SubmitButton({
     required this.isLoading,
+    required this.label,
     required this.onPressed,
   });
 
@@ -575,9 +814,9 @@ class _SubmitButton extends StatelessWidget {
                   valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               )
-            : const Text(
-                'Get Started',
-                style: TextStyle(
+            : Text(
+                label,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
