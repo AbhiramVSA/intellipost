@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../models/models.dart';
 import '../../../services/services.dart';
@@ -5,13 +6,21 @@ import '../../../services/services.dart';
 /// History ViewModel - Manages scan history state
 /// 
 /// Architecture Note: Provides scan history data, filtering,
-/// and sorting capabilities to the view.
+/// and sorting capabilities to the view. Fetches from API
+/// and polls for pending items every 2 minutes.
 class HistoryViewModel extends ChangeNotifier {
   final StorageService _storageService;
+  final ApiService _apiService;
+  Timer? _pollingTimer;
+  String? _lastUploadedMailId;
 
-  HistoryViewModel({required StorageService storageService})
-      : _storageService = storageService {
+  HistoryViewModel({
+    required StorageService storageService,
+    required ApiService apiService,
+  })  : _storageService = storageService,
+        _apiService = apiService {
     loadHistory();
+    _startPolling();
   }
 
   // State
@@ -29,14 +38,81 @@ class HistoryViewModel extends ChangeNotifier {
   HistorySortOption get sortOption => _sortOption;
   HistoryFilterOption get filterOption => _filterOption;
 
-  /// Load scan history from storage
+  /// Set the last uploaded mail ID for polling
+  void setLastUploadedMailId(String mailId) {
+    _lastUploadedMailId = mailId;
+  }
+
+  /// Start polling for pending items every 2 minutes
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(minutes: 2), (_) {
+      _pollPendingItems();
+    });
+  }
+
+  /// Poll pending items to check for status updates
+  Future<void> _pollPendingItems() async {
+    final authToken = _storageService.getAuthToken();
+    if (authToken == null) return;
+
+    // Poll the last uploaded mail if it exists and is pending
+    if (_lastUploadedMailId != null) {
+      final response = await _apiService.getMail(_lastUploadedMailId!, authToken);
+      if (response.isSuccess && response.data != null) {
+        final mail = response.data!;
+        if (mail.status != 'pending' && mail.status != 'processing') {
+          // Mail is completed or failed, refresh the list
+          _lastUploadedMailId = null;
+          await loadHistory();
+        }
+      }
+    }
+
+    // Also check any pending items in our current list
+    final pendingScans = _scans.where((s) => 
+      s.status == ScanStatus.pending || s.status == ScanStatus.processing
+    ).toList();
+
+    bool hasUpdates = false;
+    for (final scan in pendingScans) {
+      final response = await _apiService.getMail(scan.id, authToken);
+      if (response.isSuccess && response.data != null) {
+        final mail = response.data!;
+        if (mail.status != 'pending' && mail.status != 'processing') {
+          hasUpdates = true;
+          break;
+        }
+      }
+    }
+
+    if (hasUpdates) {
+      await loadHistory();
+    }
+  }
+
+  /// Load scan history from API
   Future<void> loadHistory() async {
+    final authToken = _storageService.getAuthToken();
+    if (authToken == null) {
+      _scans = [];
+      _applyFiltersAndSort();
+      notifyListeners();
+      return;
+    }
+
     _isLoading = true;
     notifyListeners();
 
-    // TODO: Replace with API call to fetch scans from server
-    // For now, show empty list until endpoint is provided
-    _scans = [];
+    final response = await _apiService.getMails(authToken, limit: 20, offset: 0);
+    
+    if (response.isSuccess && response.data != null) {
+      _scans = response.data!.map((mail) => mail.toScanModel(mail.imageUrl)).toList();
+    } else {
+      // If API fails, show empty list
+      _scans = [];
+    }
+    
     _applyFiltersAndSort();
 
     _isLoading = false;
@@ -111,9 +187,22 @@ class HistoryViewModel extends ChangeNotifier {
     await loadHistory();
   }
 
-  /// Get scan by ID
-  ScanModel? getScan(String id) {
-    return _storageService.getScan(id);
+  /// Get scan by ID from API
+  Future<ScanModel?> getScan(String id) async {
+    final authToken = _storageService.getAuthToken();
+    if (authToken == null) return null;
+
+    final response = await _apiService.getMail(id, authToken);
+    if (response.isSuccess && response.data != null) {
+      return response.data!.toScanModel(response.data!.imageUrl);
+    }
+    return null;
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }
 

@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../viewmodel/scan_viewmodel.dart';
 import 'camera_screen.dart';
+import 'preview_screen.dart';
 
 /// Scan Options Bottom Sheet - Adobe Scan style
 /// 
@@ -120,6 +125,8 @@ class _ScanOptionsSheetState extends State<ScanOptionsSheet>
           Navigator.pop(context);
           if (option.label == 'Create scan') {
             _navigateToCamera();
+          } else if (option.label == 'Create from photos') {
+            _pickFromGallery();
           }
         },
         backgroundColor: AppColors.cardDark.withValues(alpha: 0.9),
@@ -202,6 +209,38 @@ class _ScanOptionsSheetState extends State<ScanOptionsSheet>
         builder: (context) => const CameraScreen(),
       ),
     );
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final ImagePicker imagePicker = ImagePicker();
+      final XFile? image = await imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+
+      if (image != null && mounted) {
+        final File imageFile = File(image.path);
+        final viewModel = context.read<ScanViewModel>();
+        viewModel.setImage(imageFile);
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const PreviewScreen(),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
 

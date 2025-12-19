@@ -61,16 +61,46 @@ class ScanDetailScreen extends StatelessWidget {
   Widget _buildImagePreview() {
     return Container(
       color: AppColors.cardDark,
-      child: scan.imagePath.isNotEmpty && File(scan.imagePath).existsSync()
-          ? Image.file(
-              File(scan.imagePath),
-              fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) {
-                return _buildImagePlaceholder();
-              },
-            )
-          : _buildImagePlaceholder(),
+      child: _buildImageWidget(),
     );
+  }
+
+  Widget _buildImageWidget() {
+    if (scan.imagePath.isEmpty) {
+      return _buildImagePlaceholder();
+    }
+
+    // Check if it's a URL (from API) or local file path
+    if (scan.imagePath.startsWith('http://') || scan.imagePath.startsWith('https://')) {
+      return Image.network(
+        scan.imagePath,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildImagePlaceholder();
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Center(
+            child: CircularProgressIndicator(
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                  : null,
+              color: AppColors.primary,
+            ),
+          );
+        },
+      );
+    } else if (File(scan.imagePath).existsSync()) {
+      return Image.file(
+        File(scan.imagePath),
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildImagePlaceholder();
+        },
+      );
+    } else {
+      return _buildImagePlaceholder();
+    }
   }
 
   Widget _buildImagePlaceholder() {

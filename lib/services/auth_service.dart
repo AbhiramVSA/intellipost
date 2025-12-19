@@ -5,13 +5,13 @@ import 'package:http/http.dart' as http;
 
 /// Authentication Service for handling login and registration API calls
 /// 
-/// Base URL: https://api.lexalytics.me/
+/// Base URL: http://44.222.223.134/
 /// Endpoints:
-/// - POST /api/v1/login/register - Register new user
-/// - POST /api/v1/login/access-token - Login user
+/// - POST /api/v1/auth/register - Register new user
+/// - POST /api/v1/auth/login - Login user
 class AuthService {
   final http.Client _client;
-  static const String baseUrl = 'https://api.lexalytics.me';
+  static const String baseUrl = 'http://44.222.223.134';
   static const Duration timeout = Duration(seconds: 30);
 
   AuthService({http.Client? client}) : _client = client ?? http.Client();
@@ -32,7 +32,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/v1/login/register');
+      final uri = Uri.parse('$baseUrl/api/v1/auth/register');
       final requestBody = jsonEncode({
         'username': username,
         'email': email,
@@ -112,7 +112,7 @@ class AuthService {
     required String password,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/v1/login/login');
+      final uri = Uri.parse('$baseUrl/api/v1/auth/login');
       final requestBody = jsonEncode({
         'email': email,
         'password': password,

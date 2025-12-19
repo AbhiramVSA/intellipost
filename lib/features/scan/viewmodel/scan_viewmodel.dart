@@ -65,6 +65,14 @@ class ScanViewModel extends ChangeNotifier {
       return false;
     }
 
+    // Get auth token
+    final authToken = _storageService.getAuthToken();
+    if (authToken == null) {
+      _errorMessage = 'Not authenticated. Please login again.';
+      notifyListeners();
+      return false;
+    }
+
     _isSubmitting = true;
     _processingProgress = 0.0;
     _errorMessage = null;
@@ -74,11 +82,11 @@ class ScanViewModel extends ChangeNotifier {
       // Simulate progress updates
       _startProgressSimulation();
 
-      // Call API
-      final response = await _apiService.uploadScan(_capturedImage!);
+      // Call API with the 3-step upload flow
+      final response = await _apiService.uploadScan(_capturedImage!, authToken);
 
       if (response.isSuccess && response.data != null) {
-        // Convert API result to local model
+        // Convert API result to local model (with pending status)
         final scanModel = response.data!.toScanModel(_capturedImage!.path);
         
         // Save to local storage

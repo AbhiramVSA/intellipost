@@ -19,6 +19,7 @@ class HistoryScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (context) => HistoryViewModel(
         storageService: context.read(),
+        apiService: context.read(),
       ),
       child: const _HistoryScreenContent(),
     );
@@ -299,6 +300,9 @@ class _ScanHistoryItem extends StatelessWidget {
   }
 
   Widget _buildThumbnail() {
+    final isPending = scan.status == ScanStatus.pending || 
+                      scan.status == ScanStatus.processing;
+    
     return Container(
       width: 56,
       height: 56,
@@ -308,23 +312,69 @@ class _ScanHistoryItem extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: scan.imagePath.isNotEmpty && File(scan.imagePath).existsSync()
-            ? Image.file(
-                File(scan.imagePath),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    Icons.description_rounded,
-                    color: AppColors.textMuted,
-                  );
-                },
-              )
-            : const Icon(
-                Icons.description_rounded,
-                color: AppColors.textMuted,
-              ),
+        child: ColorFiltered(
+          colorFilter: isPending
+              ? const ColorFilter.mode(Colors.grey, BlendMode.saturation)
+              : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
+          child: Opacity(
+            opacity: isPending ? 0.5 : 1.0,
+            child: _buildImageWidget(),
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildImageWidget() {
+    if (scan.imagePath.isEmpty) {
+      return const Icon(
+        Icons.description_rounded,
+        color: AppColors.textMuted,
+      );
+    }
+
+    // Check if it's a URL (from API) or local file path
+    if (scan.imagePath.startsWith('http://') || scan.imagePath.startsWith('https://')) {
+      return Image.network(
+        scan.imagePath,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.description_rounded,
+            color: AppColors.textMuted,
+          );
+        },
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.textMuted,
+              ),
+            ),
+          );
+        },
+      );
+    } else if (File(scan.imagePath).existsSync()) {
+      return Image.file(
+        File(scan.imagePath),
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return const Icon(
+            Icons.description_rounded,
+            color: AppColors.textMuted,
+          );
+        },
+      );
+    } else {
+      return const Icon(
+        Icons.description_rounded,
+        color: AppColors.textMuted,
+      );
+    }
   }
 }
 

@@ -44,9 +44,7 @@ void main() async {
   final storageService = StorageService();
   await storageService.init();
 
-  // Use MockApiService for development
-  // Replace with RealApiService when backend is ready
-  final apiService = MockApiService();
+  final apiService = RealApiService();
 
   runApp(
     IntelliPostApp(

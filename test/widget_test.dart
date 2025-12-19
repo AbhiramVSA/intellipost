@@ -9,7 +9,7 @@ void main() {
     // Create test services
     final storageService = StorageService();
     await storageService.init();
-    final apiService = MockApiService();
+    final apiService = RealApiService();
 
     // Build our app and trigger a frame
     await tester.pumpWidget(IntelliPostApp(

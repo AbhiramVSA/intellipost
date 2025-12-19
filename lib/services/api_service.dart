@@ -1,141 +1,67 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/scan_model.dart';
 
 /// API Service for handling all backend communication
-/// Currently uses mock/placeholder responses for development
 /// 
-/// Architecture Note: This service is abstracted to allow easy swap
-/// to real API endpoints when backend is ready.
+/// Base URL: http://44.222.223.134/
+/// Endpoints:
+/// - POST /api/v1/mails/generate_upload_url - Get presigned URL for image upload
+/// - POST /api/v1/mails/process - Process uploaded image
+/// - GET /api/v1/mails/ - Get list of mails with pagination
+/// - GET /api/v1/mails/{mail_id} - Get single mail by ID
 abstract class ApiService {
-  Future<ApiResponse<ScanResult>> uploadScan(File image);
-  Future<ApiResponse<List<ScanResult>>> getScanHistory();
-  Future<ApiResponse<ScanResult>> getScanDetails(String scanId);
+  Future<ApiResponse<MailProcessResponse>> uploadScan(File image, String authToken);
+  Future<ApiResponse<List<MailProcessResponse>>> getMails(String authToken, {int limit = 20, int offset = 0});
+  Future<ApiResponse<MailProcessResponse>> getMail(String mailId, String authToken);
+  Future<ApiResponse<UploadUrlResponse>> generateUploadUrl(String authToken);
+  Future<ApiResponse<MailProcessResponse>> processImage(String fileKey, String authToken);
+  Future<void> uploadImageToPresignedUrl(String uploadUrl, File image);
 }
 
-/// Mock implementation of API Service
-/// Replace with real implementation when backend is ready
-class MockApiService implements ApiService {
-  // API Configuration - Update these when real backend is available
-  static const String baseUrl = 'https://api.intellipost.example.com/v1';
-  static const Duration timeout = Duration(seconds: 30);
-
-  /// Simulates network delay for realistic UX testing
-  Future<void> _simulateNetworkDelay() async {
-    await Future.delayed(const Duration(seconds: 2));
-  }
-
-  @override
-  Future<ApiResponse<ScanResult>> uploadScan(File image) async {
-    try {
-      await _simulateNetworkDelay();
-
-      // In production, this would be:
-      // final uri = Uri.parse('$baseUrl/scan');
-      // final request = http.MultipartRequest('POST', uri)
-      //   ..files.add(await http.MultipartFile.fromPath('image', image.path));
-      // final response = await request.send().timeout(timeout);
-
-      // Mock successful response
-      final mockResult = ScanResult(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        extractedText: 'Sample extracted text from the scanned letter.\n\n'
-            'From: John Doe\n'
-            '123 Main Street\n'
-            'Mumbai, Maharashtra 400001\n\n'
-            'To: Jane Smith\n'
-            '456 Park Avenue\n'
-            'Delhi, NCR 110001',
-        senderName: 'John Doe',
-        senderAddress: '123 Main Street, Mumbai, Maharashtra',
-        recipientName: 'Jane Smith',
-        recipientAddress: '456 Park Avenue, Delhi, NCR',
-        pincode: '110001',
-        confidence: 0.92,
-        processedAt: DateTime.now(),
-      );
-
-      return ApiResponse.success(mockResult);
-    } catch (e) {
-      return ApiResponse.error('Failed to upload scan: ${e.toString()}');
-    }
-  }
-
-  @override
-  Future<ApiResponse<List<ScanResult>>> getScanHistory() async {
-    try {
-      await _simulateNetworkDelay();
-
-      // Mock history response
-      final mockHistory = [
-        ScanResult(
-          id: '1',
-          extractedText: 'Previous scan content...',
-          senderName: 'Previous Sender',
-          recipientName: 'Previous Recipient',
-          processedAt: DateTime.now().subtract(const Duration(days: 1)),
-        ),
-      ];
-
-      return ApiResponse.success(mockHistory);
-    } catch (e) {
-      return ApiResponse.error('Failed to fetch history: ${e.toString()}');
-    }
-  }
-
-  @override
-  Future<ApiResponse<ScanResult>> getScanDetails(String scanId) async {
-    try {
-      await _simulateNetworkDelay();
-
-      // Mock scan details
-      final mockResult = ScanResult(
-        id: scanId,
-        extractedText: 'Detailed scan content...',
-        senderName: 'Sender Name',
-        senderAddress: 'Sender Full Address',
-        recipientName: 'Recipient Name',
-        recipientAddress: 'Recipient Full Address',
-        pincode: '400001',
-        confidence: 0.95,
-        processedAt: DateTime.now(),
-      );
-
-      return ApiResponse.success(mockResult);
-    } catch (e) {
-      return ApiResponse.error('Failed to fetch scan details: ${e.toString()}');
-    }
-  }
-}
-
-/// Real API Service implementation (for future use)
-class RealApiService implements ApiService {
+/// API Service implementation
+class RealApiService extends ApiService {
   final http.Client _client;
-  static const String baseUrl = 'https://api.intellipost.example.com/v1';
+  static const String baseUrl = 'http://44.222.223.134';
   static const Duration timeout = Duration(seconds: 30);
 
   RealApiService({http.Client? client}) : _client = client ?? http.Client();
 
+  /// Upload scan using the 3-step flow:
+  /// 1. Generate presigned upload URL
+  /// 2. Upload image to presigned URL
+  /// 3. Process the uploaded image
   @override
-  Future<ApiResponse<ScanResult>> uploadScan(File image) async {
+  Future<ApiResponse<MailProcessResponse>> uploadScan(File image, String authToken) async {
     try {
-      final uri = Uri.parse('$baseUrl/scan');
-      final request = http.MultipartRequest('POST', uri)
-        ..files.add(await http.MultipartFile.fromPath('image', image.path));
-
-      final streamedResponse = await request.send().timeout(timeout);
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return ApiResponse.success(ScanResult.fromJson(json));
-      } else {
+      debugPrint('=== UPLOAD SCAN FLOW ===');
+      
+      // Step 1: Generate upload URL
+      debugPrint('Step 1: Generating upload URL...');
+      final uploadUrlResponse = await generateUploadUrl(authToken);
+      if (!uploadUrlResponse.isSuccess || uploadUrlResponse.data == null) {
         return ApiResponse.error(
-          'Server error: ${response.statusCode}',
-          statusCode: response.statusCode,
+          uploadUrlResponse.error ?? 'Failed to generate upload URL',
+          statusCode: uploadUrlResponse.statusCode,
         );
       }
+      
+      final uploadUrl = uploadUrlResponse.data!.uploadUrl;
+      final fileKey = uploadUrlResponse.data!.fileKey;
+      debugPrint('Got upload URL and file key: $fileKey');
+      
+      // Step 2: Upload image to presigned URL
+      debugPrint('Step 2: Uploading image to presigned URL...');
+      await uploadImageToPresignedUrl(uploadUrl, image);
+      debugPrint('Image uploaded successfully');
+      
+      // Step 3: Process the uploaded image
+      debugPrint('Step 3: Processing image...');
+      final processResponse = await processImage(fileKey, authToken);
+      
+      return processResponse;
     } on SocketException {
       return ApiResponse.error('No internet connection');
     } catch (e) {
@@ -144,15 +70,33 @@ class RealApiService implements ApiService {
   }
 
   @override
-  Future<ApiResponse<List<ScanResult>>> getScanHistory() async {
+  Future<ApiResponse<List<MailProcessResponse>>> getMails(String authToken, {int limit = 20, int offset = 0}) async {
     try {
-      final uri = Uri.parse('$baseUrl/scans');
-      final response = await _client.get(uri).timeout(timeout);
+      final uri = Uri.parse('$baseUrl/api/v1/mails/')
+          .replace(queryParameters: {
+            'limit': limit.toString(),
+            'offset': offset.toString(),
+          });
+      
+      debugPrint('=== GET MAILS REQUEST ===');
+      debugPrint('URL: $uri');
+      
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': authToken,
+        },
+      ).timeout(timeout);
+
+      debugPrint('=== GET MAILS RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final jsonList = jsonDecode(response.body) as List;
         final results = jsonList
-            .map((json) => ScanResult.fromJson(json as Map<String, dynamic>))
+            .map((json) => MailProcessResponse.fromJson(json as Map<String, dynamic>))
             .toList();
         return ApiResponse.success(results);
       } else {
@@ -164,19 +108,35 @@ class RealApiService implements ApiService {
     } on SocketException {
       return ApiResponse.error('No internet connection');
     } catch (e) {
-      return ApiResponse.error('Failed to fetch history: ${e.toString()}');
+      return ApiResponse.error('Failed to fetch mails: ${e.toString()}');
     }
   }
 
   @override
-  Future<ApiResponse<ScanResult>> getScanDetails(String scanId) async {
+  Future<ApiResponse<MailProcessResponse>> getMail(String mailId, String authToken) async {
     try {
-      final uri = Uri.parse('$baseUrl/scans/$scanId');
-      final response = await _client.get(uri).timeout(timeout);
+      final uri = Uri.parse('$baseUrl/api/v1/mails/$mailId');
+      
+      debugPrint('=== GET MAIL REQUEST ===');
+      debugPrint('URL: $uri');
+      
+      final response = await _client.get(
+        uri,
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': authToken,
+        },
+      ).timeout(timeout);
+
+      debugPrint('=== GET MAIL RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return ApiResponse.success(ScanResult.fromJson(json));
+        return ApiResponse.success(MailProcessResponse.fromJson(json));
+      } else if (response.statusCode == 404) {
+        return ApiResponse.error('Mail not found', statusCode: 404);
       } else {
         return ApiResponse.error(
           'Server error: ${response.statusCode}',
@@ -186,7 +146,116 @@ class RealApiService implements ApiService {
     } on SocketException {
       return ApiResponse.error('No internet connection');
     } catch (e) {
-      return ApiResponse.error('Failed to fetch scan details: ${e.toString()}');
+      return ApiResponse.error('Failed to fetch mail: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<ApiResponse<UploadUrlResponse>> generateUploadUrl(String authToken) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/v1/mails/generate_upload_url');
+      
+      debugPrint('=== GENERATE UPLOAD URL REQUEST ===');
+      debugPrint('URL: $uri');
+      
+      final response = await _client
+          .post(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': authToken,
+            },
+          )
+          .timeout(timeout);
+
+      debugPrint('=== GENERATE UPLOAD URL RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return ApiResponse.success(UploadUrlResponse.fromJson(json));
+      } else {
+        return ApiResponse.error(
+          'Server error: ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
+      }
+    } on SocketException {
+      return ApiResponse.error('No internet connection');
+    } catch (e) {
+      return ApiResponse.error('Failed to generate upload URL: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<ApiResponse<MailProcessResponse>> processImage(String fileKey, String authToken) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/v1/mails/process')
+          .replace(queryParameters: {'file_key': fileKey});
+      
+      debugPrint('=== PROCESS IMAGE REQUEST ===');
+      debugPrint('URL: $uri');
+      
+      final response = await _client
+          .post(
+            uri,
+            headers: {
+              'Accept': 'application/json',
+              'Authorization': authToken,
+            },
+          )
+          .timeout(timeout);
+
+      debugPrint('=== PROCESS IMAGE RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+      debugPrint('Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        return ApiResponse.success(MailProcessResponse.fromJson(json));
+      } else if (response.statusCode == 422) {
+        return ApiResponse.error('Validation error', statusCode: 422);
+      } else {
+        return ApiResponse.error(
+          'Server error: ${response.statusCode}',
+          statusCode: response.statusCode,
+        );
+      }
+    } on SocketException {
+      return ApiResponse.error('No internet connection');
+    } catch (e) {
+      return ApiResponse.error('Failed to process image: ${e.toString()}');
+    }
+  }
+
+  @override
+  Future<void> uploadImageToPresignedUrl(String uploadUrl, File image) async {
+    try {
+      final bytes = await image.readAsBytes();
+      
+      debugPrint('=== UPLOAD TO PRESIGNED URL ===');
+      debugPrint('URL: $uploadUrl');
+      debugPrint('File size: ${bytes.length} bytes');
+      
+      final response = await _client
+          .put(
+            Uri.parse(uploadUrl),
+            headers: {
+              'Content-Type': 'image/jpeg',
+            },
+            body: bytes,
+          )
+          .timeout(const Duration(seconds: 60));
+
+      debugPrint('=== UPLOAD RESPONSE ===');
+      debugPrint('Status: ${response.statusCode}');
+
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        throw Exception('Upload failed with status: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Failed to upload image: ${e.toString()}');
     }
   }
 }
@@ -285,5 +354,173 @@ class ScanResult {
       pincode: pincode,
       apiResponse: jsonEncode(toJson()),
     );
+  }
+}
+
+/// Response from generate_upload_url endpoint
+/// {
+///   "upload_url": "https://...",
+///   "file_key": "user_uploads/..."
+/// }
+class UploadUrlResponse {
+  final String uploadUrl;
+  final String fileKey;
+
+  UploadUrlResponse({
+    required this.uploadUrl,
+    required this.fileKey,
+  });
+
+  factory UploadUrlResponse.fromJson(Map<String, dynamic> json) {
+    return UploadUrlResponse(
+      uploadUrl: json['upload_url'] as String,
+      fileKey: json['file_key'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'upload_url': uploadUrl,
+      'file_key': fileKey,
+    };
+  }
+}
+
+/// Response from process endpoint
+/// {
+///   "id": "...",
+///   "user_id": "...",
+///   "image_s3_key": "...",
+///   "image_url": "",
+///   "status": "pending",
+///   "sender_name": null,
+///   "sender_address": null,
+///   "sender_pincode": null,
+///   "receiver_name": null,
+///   "receiver_address": null,
+///   "receiver_pincode": null,
+///   "assigned_sorting_center": null,
+///   "raw_ai_response": null,
+///   "created_at": "...",
+///   "updated_at": null
+/// }
+class MailProcessResponse {
+  final String id;
+  final String userId;
+  final String imageS3Key;
+  final String imageUrl;
+  final String status;
+  final String? senderName;
+  final String? senderAddress;
+  final String? senderPincode;
+  final String? receiverName;
+  final String? receiverAddress;
+  final String? receiverPincode;
+  final String? assignedSortingCenter;
+  final String? rawAiResponse;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  MailProcessResponse({
+    required this.id,
+    required this.userId,
+    required this.imageS3Key,
+    required this.imageUrl,
+    required this.status,
+    this.senderName,
+    this.senderAddress,
+    this.senderPincode,
+    this.receiverName,
+    this.receiverAddress,
+    this.receiverPincode,
+    this.assignedSortingCenter,
+    this.rawAiResponse,
+    required this.createdAt,
+    this.updatedAt,
+  });
+
+  factory MailProcessResponse.fromJson(Map<String, dynamic> json) {
+    // Handle raw_ai_response - it can be a Map or null
+    String? rawAiResponseStr;
+    if (json['raw_ai_response'] != null) {
+      if (json['raw_ai_response'] is Map) {
+        rawAiResponseStr = jsonEncode(json['raw_ai_response']);
+      } else {
+        rawAiResponseStr = json['raw_ai_response'].toString();
+      }
+    }
+    
+    return MailProcessResponse(
+      id: json['id'] as String,
+      userId: json['user_id'] as String,
+      imageS3Key: json['image_s3_key'] as String,
+      imageUrl: json['image_url'] as String? ?? '',
+      status: json['status'] as String,
+      senderName: json['sender_name'] as String?,
+      senderAddress: json['sender_address'] as String?,
+      senderPincode: json['sender_pincode'] as String?,
+      receiverName: json['receiver_name'] as String?,
+      receiverAddress: json['receiver_address'] as String?,
+      receiverPincode: json['receiver_pincode'] as String?,
+      assignedSortingCenter: json['assigned_sorting_center'] as String?,
+      rawAiResponse: rawAiResponseStr,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.parse(json['updated_at'] as String) 
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'user_id': userId,
+      'image_s3_key': imageS3Key,
+      'image_url': imageUrl,
+      'status': status,
+      'sender_name': senderName,
+      'sender_address': senderAddress,
+      'sender_pincode': senderPincode,
+      'receiver_name': receiverName,
+      'receiver_address': receiverAddress,
+      'receiver_pincode': receiverPincode,
+      'assigned_sorting_center': assignedSortingCenter,
+      'raw_ai_response': rawAiResponse,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
+    };
+  }
+
+  /// Convert to ScanModel for local storage
+  ScanModel toScanModel(String imagePath) {
+    return ScanModel(
+      id: id,
+      imagePath: imagePath,
+      createdAt: createdAt,
+      statusIndex: _statusToIndex(status),
+      extractedText: rawAiResponse,
+      senderName: senderName,
+      senderAddress: senderAddress,
+      recipientName: receiverName,
+      recipientAddress: receiverAddress,
+      pincode: receiverPincode,
+      apiResponse: jsonEncode(toJson()),
+    );
+  }
+
+  int _statusToIndex(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':
+        return ScanStatus.pending.index;
+      case 'processing':
+        return ScanStatus.processing.index;
+      case 'processed':
+      case 'completed':
+        return ScanStatus.processed.index;
+      case 'failed':
+        return ScanStatus.failed.index;
+      default:
+        return ScanStatus.pending.index;
+    }
   }
 }
