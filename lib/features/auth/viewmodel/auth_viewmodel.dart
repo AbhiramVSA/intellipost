@@ -26,10 +26,6 @@ class AuthViewModel extends ChangeNotifier {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
-  // Legacy controllers for backwards compatibility
-  TextEditingController get nameController => usernameController;
-  TextEditingController get phoneController => TextEditingController(); // Dummy for legacy
-
   // State
   AuthMode _authMode = AuthMode.login;
   bool _isLoading = false;
@@ -97,12 +93,6 @@ class AuthViewModel extends ChangeNotifier {
     }
     return null;
   }
-
-  /// Validate name field (legacy - maps to username)
-  String? validateName(String? value) => validateUsername(value);
-
-  /// Validate phone field (legacy - always valid now)
-  String? validatePhone(String? value) => null;
 
   /// Validate email field
   String? validateEmail(String? value) {

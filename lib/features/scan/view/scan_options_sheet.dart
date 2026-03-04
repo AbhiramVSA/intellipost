@@ -24,19 +24,15 @@ class _ScanOptionsSheetState extends State<ScanOptionsSheet>
   late List<Animation<Offset>> _slideAnimations;
   late Animation<double> _fadeAnimation;
 
-  final List<_ScanOption> _options = [
+  static const List<_ScanOption> _options = [
     _ScanOption(
       icon: Icons.photo_library_rounded,
       label: 'Create from photos',
-      isPremium: false,
-      onTap: () {},
     ),
     _ScanOption(
       icon: Icons.camera_alt_rounded,
       label: 'Create scan',
-      isPremium: false,
       isHighlighted: true,
-      onTap: () {},
     ),
   ];
 
@@ -249,31 +245,11 @@ class _ScanOption {
   final String label;
   final bool isPremium;
   final bool isHighlighted;
-  final VoidCallback onTap;
 
-  _ScanOption({
+  const _ScanOption({
     required this.icon,
     required this.label,
-    required this.onTap,
     this.isPremium = false,
     this.isHighlighted = false,
   });
-}
-
-/// AnimatedBuilder helper
-class AnimatedBuilder extends AnimatedWidget {
-  final Widget Function(BuildContext context, Widget? child) builder;
-  final Widget? child;
-
-  const AnimatedBuilder({
-    super.key,
-    required Animation<double> animation,
-    required this.builder,
-    this.child,
-  }) : super(listenable: animation);
-
-  @override
-  Widget build(BuildContext context) {
-    return builder(context, child);
-  }
 }
