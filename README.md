@@ -8,17 +8,11 @@
 
 ## Features
 
-- **Document Scanning** — Capture letters using your device camera with auto-edge detection
+- **Document Scanning** — Capture letters using your device camera
 - **Gallery Import** — Import existing images from your photo library
 - **Text Extraction** — AI-powered OCR to extract sender/recipient details, addresses, and pincodes
-- **Scan History** — Browse and search through all your digitized letters
-- **Dark Theme** — Beautiful dark UI designed for comfortable viewing
-
-## Screenshots
-
-| Login | Home | Scan | History |
-|:-----:|:----:|:----:|:-------:|
-| ![Login](screenshots/login.png) | ![Home](screenshots/home.png) | ![Scan](screenshots/scan.png) | ![History](screenshots/history.png) |
+- **Scan History** — Browse, filter, and sort through all your digitized letters
+- **Dark Theme** — Polished dark UI designed for comfortable viewing
 
 ## Architecture
 
@@ -33,26 +27,25 @@ graph TD
 
     B --> B1[theme/]
     B --> B2[widgets/]
+    B --> B3[config.dart]
 
     C --> C1[auth/]
     C --> C2[home/]
     C --> C3[scan/]
     C --> C4[history/]
 
-    C1 --> V1[views/]
-    C1 --> VM1[viewmodels/]
-    C2 --> V2[views/]
-    C2 --> VM2[viewmodels/]
-    C3 --> V3[views/]
-    C3 --> VM3[viewmodels/]
-    C4 --> V4[views/]
-    C4 --> VM4[viewmodels/]
-
-    D --> D1[User]
-    D --> D2[Scan]
+    C1 --> V1[view/]
+    C1 --> VM1[viewmodel/]
+    C2 --> V2[view/]
+    C2 --> VM2[viewmodel/]
+    C3 --> V3[view/]
+    C3 --> VM3[viewmodel/]
+    C4 --> V4[view/]
+    C4 --> VM4[viewmodel/]
 
     E --> E1[API Service]
-    E --> E2[Storage Service]
+    E --> E2[Auth Service]
+    E --> E3[Storage Service]
 ```
 
 ### Scan Flow
@@ -65,8 +58,8 @@ sequenceDiagram
 
     User->>App: Capture / Import image
     App->>API: Request presigned upload URL
-    API-->>App: Upload URL
-    App->>API: Upload image to URL
+    API-->>App: Upload URL + file key
+    App->>API: Upload image to presigned URL
     App->>API: Process uploaded image (OCR)
     API-->>App: Extracted text & metadata
     App->>App: Save to local history
@@ -82,27 +75,26 @@ sequenceDiagram
 - Android Studio / VS Code
 - Android emulator or physical device
 
-### Installation
+### Setup
 
 ```bash
 git clone https://github.com/yourusername/intellipost.git
-cd intellipost/app
+cd intellipost
 flutter pub get
 flutter run
 ```
 
-## Tech Stack
+### Configuration
 
-| Category | Technology |
-|----------|------------|
-| Framework | Flutter |
-| Language | Dart |
-| State Management | Provider |
-| Local Storage | Hive |
-| Camera | camera, image\_picker |
-| HTTP Client | http |
+The API base URL is configured in `lib/core/config.dart`:
 
-## Configuration
+```dart
+class AppConfig {
+  static const String apiBaseUrl = 'http://44.222.223.134';
+}
+```
+
+Update this to point to your backend instance.
 
 ### Android Permissions
 
@@ -113,16 +105,35 @@ Camera and storage permissions are configured in `android/app/src/main/AndroidMa
 <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 ```
 
+## Tech Stack
+
+| Category | Technology |
+|----------|------------|
+| Framework | Flutter |
+| Language | Dart |
+| State Management | Provider (MVVM) |
+| Local Storage | Hive |
+| Camera | camera, image\_picker |
+| HTTP Client | http |
+
+## Project Structure
+
+```
+lib/
+├── core/
+│   ├── config.dart          # API and app configuration
+│   ├── theme/               # Colors, text styles, theme data
+│   └── widgets/             # Shared UI components
+├── features/
+│   ├── auth/                # Login & registration
+│   ├── home/                # Home screen & navigation
+│   ├── scan/                # Camera, preview, scan options
+│   └── history/             # Scan history & detail views
+├── models/                  # UserModel, ScanModel (Hive)
+├── services/                # API, Auth, and Storage services
+└── main.dart                # App entry point & routing
+```
+
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
