@@ -11,26 +11,16 @@ import 'features/home/viewmodel/home_viewmodel.dart';
 import 'features/scan/viewmodel/scan_viewmodel.dart';
 
 /// IntelliPost - Indian Post Letter Scanner App
-/// 
+///
 /// Architecture: MVVM with Provider for state management
-/// 
-/// This app allows users to:
-/// 1. Scan Indian Post letters using the device camera
-/// 2. Send scanned images to a backend API for text extraction
-/// 3. View scan history with extracted data
-/// 
-/// Note: Backend API calls are mocked for development.
-/// Replace MockApiService with RealApiService when backend is ready.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Set system UI overlay style for dark theme
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -40,7 +30,6 @@ void main() async {
     ),
   );
 
-  // Initialize services
   final storageService = StorageService();
   await storageService.init();
 
@@ -67,14 +56,10 @@ class IntelliPostApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // MultiProvider for dependency injection
     return MultiProvider(
       providers: [
-        // Services
         Provider<StorageService>.value(value: storageService),
         Provider<ApiService>.value(value: apiService),
-
-        // ViewModels
         ChangeNotifierProvider(
           create: (context) => AuthViewModel(
             storageService: storageService,
@@ -97,11 +82,8 @@ class IntelliPostApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.darkTheme,
         
-        // Route configuration
         initialRoute: '/',
         onGenerateRoute: _generateRoute,
-        
-        // Home decides initial screen based on login state
         home: const _InitialRouteDecider(),
       ),
     );

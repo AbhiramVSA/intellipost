@@ -4,10 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../models/models.dart';
 import '../../../services/services.dart';
 
-/// Scan ViewModel - Manages the entire scan workflow
-/// 
-/// Architecture Note: Handles camera state, image capture, API submission,
-/// and result processing. All scan-related business logic lives here.
+/// Manages the scan workflow: image capture, API submission, and result processing.
 class ScanViewModel extends ChangeNotifier {
   final ApiService _apiService;
   final StorageService _storageService;

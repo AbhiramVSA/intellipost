@@ -5,11 +5,7 @@ import '../../../services/services.dart';
 /// Authentication mode
 enum AuthMode { login, register }
 
-/// Authentication ViewModel
-/// Handles login and registration with real API calls
-/// 
-/// Architecture Note: All business logic lives here, keeping the view clean.
-/// Uses ChangeNotifier for reactive UI updates.
+/// Handles login and registration flows, form validation, and session management.
 class AuthViewModel extends ChangeNotifier {
   final StorageService _storageService;
   final AuthService _authService;

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/common_widgets.dart';
+import '../../../models/models.dart';
 import '../../history/view/history_screen.dart';
 import '../../scan/view/scan_options_sheet.dart';
 import '../viewmodel/home_viewmodel.dart';
@@ -241,14 +242,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _openScanDetails(dynamic scan) {
+  void _openScanDetails(ScanModel scan) {
     Navigator.of(context).pushNamed('/scan-details', arguments: scan);
   }
 }
 
-/// Scan list item widget
 class _ScanListItem extends StatelessWidget {
-  final dynamic scan;
+  final ScanModel scan;
   final VoidCallback onTap;
 
   const _ScanListItem({
@@ -299,7 +299,7 @@ class _ScanListItem extends StatelessWidget {
                 ],
               ),
             ),
-            _StatusBadge(status: scan.statusText),
+            _StatusBadge(status: scan.status),
           ],
         ),
       ),
@@ -307,22 +307,20 @@ class _ScanListItem extends StatelessWidget {
   }
 }
 
-/// Status badge widget
 class _StatusBadge extends StatelessWidget {
-  final String status;
+  final ScanStatus status;
 
   const _StatusBadge({required this.status});
 
   Color get _color {
-    switch (status.toLowerCase()) {
-      case 'processed':
+    switch (status) {
+      case ScanStatus.processed:
         return AppColors.success;
-      case 'pending':
+      case ScanStatus.pending:
+      case ScanStatus.processing:
         return AppColors.warning;
-      case 'failed':
+      case ScanStatus.failed:
         return AppColors.error;
-      default:
-        return AppColors.textMuted;
     }
   }
 
@@ -335,7 +333,7 @@ class _StatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status,
+        status.name,
         style: AppTextStyles.caption.copyWith(
           color: _color,
           fontWeight: FontWeight.w600,

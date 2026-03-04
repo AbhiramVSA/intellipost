@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../models/models.dart';
 import '../../../services/services.dart';
 
-/// Home ViewModel - Manages state for the home screen
-/// 
-/// Architecture Note: Provides scan data and user info to the view,
-/// handles navigation state for bottom nav.
+/// Manages state for the home screen: navigation, user info, and recent scans.
 class HomeViewModel extends ChangeNotifier {
   final StorageService _storageService;
 
@@ -34,9 +31,7 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     _currentUser = _storageService.getUser();
-    // TODO: Replace with API call to fetch scans from server
-    // For now, show empty list until endpoint is provided
-    _recentScans = [];
+    _recentScans = _storageService.getAllScans();
 
     _isLoading = false;
     notifyListeners();

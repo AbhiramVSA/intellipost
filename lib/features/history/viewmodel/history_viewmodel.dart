@@ -3,11 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/models.dart';
 import '../../../services/services.dart';
 
-/// History ViewModel - Manages scan history state
-/// 
-/// Architecture Note: Provides scan history data, filtering,
-/// and sorting capabilities to the view. Fetches from API
-/// and polls for pending items every 2 minutes.
+/// Manages scan history: fetching from API, filtering, sorting, and polling for updates.
 class HistoryViewModel extends ChangeNotifier {
   final StorageService _storageService;
   final ApiService _apiService;
