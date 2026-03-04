@@ -1,9 +1,11 @@
 # IntelliPost
 
-> Smart document scanner for India Post letters — digitize, extract, and organize postal correspondence with ease.
+> Smart document scanner for India Post letters — digitize, extract, and organize postal correspondence with AI-powered OCR.
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
 ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688?logo=fastapi)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
@@ -72,14 +74,31 @@ sequenceDiagram
 
 - Flutter SDK 3.10+
 - Dart 3.0+
+- Python 3.13+ with [uv](https://docs.astral.sh/uv/)
+- Docker & Docker Compose
 - Android Studio / VS Code
-- Android emulator or physical device
 
-### Setup
+### Backend Setup
 
 ```bash
-git clone https://github.com/yourusername/intellipost.git
-cd intellipost
+# Start PostgreSQL
+docker compose up -d
+
+# Install Python dependencies
+uv sync
+
+# Run database migrations
+uv run alembic upgrade head
+
+# Start the API server
+uv run uvicorn backend.app.main:app --reload
+```
+
+The backend requires a `.env` file in the project root with your database URL, S3 credentials, and AI API keys. See `backend/app/core/config.py` for all required environment variables.
+
+### Mobile App Setup
+
+```bash
 flutter pub get
 flutter run
 ```
@@ -96,6 +115,15 @@ class AppConfig {
 
 Update this to point to your backend instance.
 
+### Docker Deployment
+
+```bash
+# Build and run the full stack
+docker build -t intellipost .
+docker compose up -d
+docker run -p 8000:8000 --env-file .env intellipost
+```
+
 ### Android Permissions
 
 Camera and storage permissions are configured in `android/app/src/main/AndroidManifest.xml`:
@@ -109,29 +137,52 @@ Camera and storage permissions are configured in `android/app/src/main/AndroidMa
 
 | Category | Technology |
 |----------|------------|
-| Framework | Flutter |
-| Language | Dart |
+| Mobile Framework | Flutter / Dart |
 | State Management | Provider (MVVM) |
 | Local Storage | Hive |
 | Camera | camera, image\_picker |
-| HTTP Client | http |
+| Backend Framework | FastAPI / Python |
+| Database | PostgreSQL 17 |
+| Migrations | Alembic |
+| AI Processing | Pydantic AI |
+| Object Storage | Cloudflare R2 (S3-compatible) |
+| Containerization | Docker |
 
 ## Project Structure
 
 ```
-lib/
-├── core/
-│   ├── config.dart          # API and app configuration
-│   ├── theme/               # Colors, text styles, theme data
-│   └── widgets/             # Shared UI components
-├── features/
-│   ├── auth/                # Login & registration
-│   ├── home/                # Home screen & navigation
-│   ├── scan/                # Camera, preview, scan options
-│   └── history/             # Scan history & detail views
-├── models/                  # UserModel, ScanModel (Hive)
-├── services/                # API, Auth, and Storage services
-└── main.dart                # App entry point & routing
+├── lib/                         # Flutter mobile app
+│   ├── core/
+│   │   ├── config.dart          # API and app configuration
+│   │   ├── theme/               # Colors, text styles, theme data
+│   │   └── widgets/             # Shared UI components
+│   ├── features/
+│   │   ├── auth/                # Login & registration
+│   │   ├── home/                # Home screen & navigation
+│   │   ├── scan/                # Camera, preview, scan options
+│   │   └── history/             # Scan history & detail views
+│   ├── models/                  # UserModel, ScanModel (Hive)
+│   ├── services/                # API, Auth, and Storage services
+│   └── main.dart                # App entry point & routing
+│
+├── backend/                     # FastAPI backend
+│   ├── app/
+│   │   ├── api/                 # Route handlers
+│   │   ├── controllers/         # Business logic
+│   │   ├── core/                # Config, security, dependencies
+│   │   ├── crud/                # Database operations
+│   │   ├── db/                  # Database connection & session
+│   │   ├── models/              # SQLModel ORM models
+│   │   ├── schemas/             # Pydantic request/response schemas
+│   │   ├── services/            # S3, AI processing services
+│   │   ├── prompts/             # AI prompt templates
+│   │   └── utils/               # Helper utilities
+│   ├── alembic/                 # Database migration scripts
+│   └── alembic.ini              # Alembic configuration
+│
+├── Dockerfile                   # Multi-stage production build
+├── docker-compose.yml           # PostgreSQL service
+└── pyproject.toml               # Python dependencies
 ```
 
 ## License
