@@ -1,92 +1,44 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../core/config.dart';
 
-/// Authentication Service for handling login and registration API calls
-/// 
-/// Base URL: http://44.222.223.134/
-/// Endpoints:
-/// - POST /api/v1/auth/register - Register new user
-/// - POST /api/v1/auth/login - Login user
+/// Handles authentication API calls (login and registration).
 class AuthService {
   final http.Client _client;
-  static String get baseUrl => AppConfig.apiBaseUrl;
-  static Duration get timeout => AppConfig.apiTimeout;
 
   AuthService({http.Client? client}) : _client = client ?? http.Client();
 
-  /// Register a new user
-  /// 
-  /// Request body:
-  /// {
-  ///   "username": "string",
-  ///   "email": "user@example.com",
-  ///   "password": "string"
-  /// }
-  /// 
-  /// Returns [AuthResponse] with user data on success
+  static const _jsonHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+
   Future<AuthResponse<RegisterResponse>> register({
     required String username,
     required String email,
     required String password,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/v1/auth/register');
-      final requestBody = jsonEncode({
-        'username': username,
-        'email': email,
-        'password': password,
-      });
-      
-      debugPrint('=== REGISTER REQUEST ===');
-      debugPrint('URL: $uri');
-      debugPrint('Body: $requestBody');
-      
-      final response = await _client
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: requestBody,
-          )
-          .timeout(timeout);
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/register');
 
-      debugPrint('=== REGISTER RESPONSE ===');
-      debugPrint('Status: ${response.statusCode}');
-      debugPrint('Body: ${response.body}');
+      final response = await _client
+          .post(uri, headers: _jsonHeaders, body: jsonEncode({
+            'username': username,
+            'email': email,
+            'password': password,
+          }))
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
         return AuthResponse.success(RegisterResponse.fromJson(json));
       } else if (response.statusCode == 422) {
-        // Validation error
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final error = ValidationError.fromJson(json);
-        return AuthResponse.validationError(error);
+        return AuthResponse.validationError(ValidationError.fromJson(json));
       } else {
-        // Try to parse error message from response body
-        String errorMessage = 'Registration failed: ${response.statusCode}';
-        try {
-          final json = jsonDecode(response.body);
-          if (json is Map<String, dynamic>) {
-            errorMessage = json['detail']?.toString() ?? 
-                           json['message']?.toString() ?? 
-                           json['error']?.toString() ?? 
-                           response.body;
-          } else {
-            errorMessage = response.body;
-          }
-        } catch (_) {
-          errorMessage = response.body.isNotEmpty 
-              ? response.body 
-              : 'Registration failed: ${response.statusCode}';
-        }
         return AuthResponse.error(
-          errorMessage,
+          _extractErrorMessage(response, 'Registration failed'),
           statusCode: response.statusCode,
         );
       }
@@ -95,77 +47,60 @@ class AuthService {
     } on http.ClientException catch (e) {
       return AuthResponse.error('Network error: ${e.message}');
     } catch (e) {
-      return AuthResponse.error('Registration failed: ${e.toString()}');
+      return AuthResponse.error('Registration failed: $e');
     }
   }
 
-  /// Login user and get access token
-  /// 
-  /// Request body:
-  /// {
-  ///   "email": "user@example.com",
-  ///   "password": "string"
-  /// }
-  /// 
-  /// Returns access token string on success
   Future<AuthResponse<String>> login({
     required String email,
     required String password,
   }) async {
     try {
-      final uri = Uri.parse('$baseUrl/api/v1/auth/login');
-      final requestBody = jsonEncode({
-        'email': email,
-        'password': password,
-      });
-      
-      debugPrint('=== LOGIN REQUEST ===');
-      debugPrint('URL: $uri');
-      debugPrint('Body: $requestBody');
-      
-      final response = await _client
-          .post(
-            uri,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-            },
-            body: requestBody,
-          )
-          .timeout(timeout);
+      final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/v1/auth/login');
 
-      debugPrint('=== LOGIN RESPONSE ===');
-      debugPrint('Status: ${response.statusCode}');
-      debugPrint('Body: ${response.body}');
+      final response = await _client
+          .post(uri, headers: _jsonHeaders, body: jsonEncode({
+            'email': email,
+            'password': password,
+          }))
+          .timeout(AppConfig.apiTimeout);
 
       if (response.statusCode == 200) {
-        // Response format: {"access_token": "...", "token_type": "bearer"}
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final token = json['access_token'] as String;
-        return AuthResponse.success(token);
+        return AuthResponse.success(json['access_token'] as String);
       } else if (response.statusCode == 422) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final error = ValidationError.fromJson(json);
-        return AuthResponse.validationError(error);
+        return AuthResponse.validationError(ValidationError.fromJson(json));
       } else if (response.statusCode == 401) {
         return AuthResponse.error('Invalid username or password');
-      } else {
-        return AuthResponse.error(
-          'Login failed: ${response.statusCode}',
-          statusCode: response.statusCode,
-        );
       }
+      return AuthResponse.error('Login failed: ${response.statusCode}', statusCode: response.statusCode);
     } on SocketException {
       return AuthResponse.error('No internet connection');
     } on http.ClientException catch (e) {
       return AuthResponse.error('Network error: ${e.message}');
     } catch (e) {
-      return AuthResponse.error('Login failed: ${e.toString()}');
+      return AuthResponse.error('Login failed: $e');
+    }
+  }
+
+  String _extractErrorMessage(http.Response response, String fallback) {
+    try {
+      final json = jsonDecode(response.body);
+      if (json is Map<String, dynamic>) {
+        return json['detail']?.toString() ??
+            json['message']?.toString() ??
+            json['error']?.toString() ??
+            response.body;
+      }
+      return response.body;
+    } catch (_) {
+      return response.body.isNotEmpty ? response.body : '$fallback: ${response.statusCode}';
     }
   }
 }
 
-/// Generic authentication response wrapper
+/// Generic authentication response wrapper.
 class AuthResponse<T> {
   final T? data;
   final String? error;
@@ -181,52 +116,28 @@ class AuthResponse<T> {
     required this.isSuccess,
   });
 
-  factory AuthResponse.success(T data) {
-    return AuthResponse._(data: data, isSuccess: true, statusCode: 200);
-  }
+  factory AuthResponse.success(T data) =>
+      AuthResponse._(data: data, isSuccess: true, statusCode: 200);
 
-  factory AuthResponse.error(String message, {int? statusCode}) {
-    return AuthResponse._(
-      error: message,
-      isSuccess: false,
-      statusCode: statusCode,
-    );
-  }
+  factory AuthResponse.error(String message, {int? statusCode}) =>
+      AuthResponse._(error: message, isSuccess: false, statusCode: statusCode);
 
-  factory AuthResponse.validationError(ValidationError error) {
-    return AuthResponse._(
-      validationError: error,
-      error: error.message,
-      isSuccess: false,
-      statusCode: 422,
-    );
-  }
+  factory AuthResponse.validationError(ValidationError error) => AuthResponse._(
+    validationError: error,
+    error: error.message,
+    isSuccess: false,
+    statusCode: 422,
+  );
 
-  /// Get error message (either from error string or validation error)
-  String? get errorMessage {
-    if (validationError != null) {
-      return validationError!.message;
-    }
-    return error;
-  }
+  String? get errorMessage => validationError?.message ?? error;
 }
 
-/// Register response model
-/// {
-///   "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-///   "username": "string",
-///   "email": "user@example.com"
-/// }
 class RegisterResponse {
   final String id;
   final String username;
   final String email;
 
-  RegisterResponse({
-    required this.id,
-    required this.username,
-    required this.email,
-  });
+  RegisterResponse({required this.id, required this.username, required this.email});
 
   factory RegisterResponse.fromJson(Map<String, dynamic> json) {
     return RegisterResponse(
@@ -235,26 +146,8 @@ class RegisterResponse {
       email: json['email'] as String,
     );
   }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'username': username,
-      'email': email,
-    };
-  }
 }
 
-/// Validation error response model
-/// {
-///   "detail": [
-///     {
-///       "loc": ["string", 0],
-///       "msg": "string",
-///       "type": "string"
-///     }
-///   ]
-/// }
 class ValidationError {
   final List<ValidationErrorDetail> details;
 
@@ -262,9 +155,7 @@ class ValidationError {
 
   factory ValidationError.fromJson(Map<String, dynamic> json) {
     final detailList = json['detail'] as List<dynamic>?;
-    if (detailList == null) {
-      return ValidationError(details: []);
-    }
+    if (detailList == null) return ValidationError(details: []);
     return ValidationError(
       details: detailList
           .map((e) => ValidationErrorDetail.fromJson(e as Map<String, dynamic>))
@@ -272,16 +163,12 @@ class ValidationError {
     );
   }
 
-  /// Get a human-readable error message
   String get message {
-    if (details.isEmpty) {
-      return 'Validation failed';
-    }
+    if (details.isEmpty) return 'Validation failed';
     return details.map((d) => d.message).join(', ');
   }
 }
 
-/// Single validation error detail
 class ValidationErrorDetail {
   final List<dynamic> location;
   final String message;
@@ -301,10 +188,5 @@ class ValidationErrorDetail {
     );
   }
 
-  /// Get the field name from location
-  String? get fieldName {
-    if (location.isEmpty) return null;
-    // Location is usually like ["body", "email"] or ["body", "password"]
-    return location.last.toString();
-  }
+  String? get fieldName => location.isEmpty ? null : location.last.toString();
 }
