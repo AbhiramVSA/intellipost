@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/config.dart';
 
 /// Authentication Service for handling login and registration API calls
 /// 
@@ -11,8 +12,8 @@ import 'package:http/http.dart' as http;
 /// - POST /api/v1/auth/login - Login user
 class AuthService {
   final http.Client _client;
-  static const String baseUrl = 'http://44.222.223.134';
-  static const Duration timeout = Duration(seconds: 30);
+  static String get baseUrl => AppConfig.apiBaseUrl;
+  static Duration get timeout => AppConfig.apiTimeout;
 
   AuthService({http.Client? client}) : _client = client ?? http.Client();
 

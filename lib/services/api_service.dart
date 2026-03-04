@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../core/config.dart';
 import '../models/scan_model.dart';
 
 /// API Service for handling all backend communication
@@ -24,8 +25,8 @@ abstract class ApiService {
 /// API Service implementation
 class RealApiService extends ApiService {
   final http.Client _client;
-  static const String baseUrl = 'http://44.222.223.134';
-  static const Duration timeout = Duration(seconds: 30);
+  static String get baseUrl => AppConfig.apiBaseUrl;
+  static Duration get timeout => AppConfig.apiTimeout;
 
   RealApiService({http.Client? client}) : _client = client ?? http.Client();
 
