@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/intellipost-mark.svg" alt="Envelope scan with a pincode marker" width="104">
+  <img src="assets/intellipost-logo.png" alt="Envelope under scan corners with a sorting route marker" width="200">
 </p>
 
 <h1 align="center">IntelliPost</h1>
