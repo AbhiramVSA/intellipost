@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">IntelliPost mark</title>
+  <desc id="desc">A letter envelope marked with a postal-code pin.</desc>
+  <rect x="10" y="22" width="108" height="84" rx="18" fill="#123a5a"/>
+  <path d="M18 39 64 73l46-34" fill="none" stroke="#f5f8fc" stroke-linecap="round" stroke-linejoin="round" stroke-width="8"/>
+  <path d="M29 93 55 69m44 24L73 69" fill="none" stroke="#f5f8fc" stroke-linecap="round" stroke-width="7"/>
+  <path d="M87 18c-10 0-18 8-18 18 0 13 18 31 18 31s18-18 18-31c0-10-8-18-18-18Z" fill="#e59a45" stroke="#fff" stroke-width="4"/>
+  <circle cx="87" cy="36" r="6" fill="#123a5a"/>
+</svg>
