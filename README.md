@@ -1,19 +1,22 @@
-# IntelliPost
+<p align="center">
+  <img src="assets/intellipost-logo.png" alt="Envelope under scan corners with a sorting route marker" width="200">
+</p>
 
-> AI-powered postal mail scanner for India Post — capture envelope images, extract sender/recipient details via vision AI, and auto-assign sorting centers using pincode lookup.
+<h1 align="center">IntelliPost</h1>
 
-![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
-![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.116-009688?logo=fastapi)
-![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-17-4169E1?logo=postgresql)
-![License](https://img.shields.io/badge/License-MIT-green)
+<p align="center">A Flutter mail-scanning app and FastAPI service for envelope extraction and sorting-center lookup.</p>
+
+<div align="center">
+
+[Features](#features) · [API](#api-endpoints) · [Processing flow](#mail-processing-pipeline) · [Setup](#getting-started) · [Setup and configuration](#getting-started) · [Tests](#tests)
+
+</div>
 
 ## Features
 
 - **Envelope Scanning** — Capture postal envelopes via camera or import from gallery
 - **AI-Powered Extraction** — Vision model reads handwritten/printed addresses, names, and pincodes from envelope images
-- **Sorting Center Assignment** — Automatically resolves receiver pincode to the correct India Post sorting division
+- **Sorting Center Assignment** — Looks up the receiver pincode through a postal-code service and stores the resolved sorting division
 - **Presigned Uploads** — Images upload directly to Cloudflare R2 via presigned URLs (zero backend bandwidth)
 - **Scan History** — Browse, filter, and review all processed mail with full extracted details
 - **JWT Authentication** — Secure user registration and login with bcrypt password hashing
@@ -41,8 +44,8 @@ graph TB
     subgraph External["External Services"]
         PG[(PostgreSQL 17)]
         R2[(Cloudflare R2<br/>Object Storage)]
-        OPENAI[OpenAI Vision API<br/>GPT-5]
-        POSTAPI[India Post API<br/>Pincode Lookup]
+        OPENAI[OpenAI vision model<br/>configured in backend]
+        POSTAPI[Pincode lookup service]
     end
 
     UI --> VM
@@ -86,7 +89,7 @@ sequenceDiagram
     participant API as FastAPI Backend
     participant R2 as Cloudflare R2
     participant AI as OpenAI Vision
-    participant Post as India Post API
+    participant Post as Pincode lookup
     participant DB as PostgreSQL
 
     User ->> App: Capture / import envelope image
@@ -254,8 +257,8 @@ graph TD
 
 ### Prerequisites
 
-- Flutter SDK 3.10+
-- Python 3.13+ with [uv](https://docs.astral.sh/uv/)
+- Flutter with Dart 3.10.3 or newer
+- Python 3.12+ with [uv](https://docs.astral.sh/uv/)
 - Docker & Docker Compose
 - An OpenAI API key (for vision model)
 - A Cloudflare R2 bucket (for image storage)
@@ -267,36 +270,23 @@ graph TD
    docker compose up -d
    ```
 
-2. **Configure environment** — create a `.env` in the project root:
-   ```env
-   PROJECT_NAME=IntelliPost
-   SECRET_KEY=your-secret-key
+2. **Configure the backend** — create a local `.env` at the repository root. The backend reads it as `../.env` when you run commands from `backend/`. The project has no checked-in `.env.example`.
 
-   DATABASE_USER=postgres
-   DATABASE_PASSWORD=postgres
-   DATABASE_HOST=localhost
-   DATABASE_PORT=5432
-   DATABASE_NAME=intellipost
+   Supply values for `PROJECT_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_NAME`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `OPENAI_API_KEY`. `SECRET_KEY` signs JWTs; set a private value for local use and deployments. `VISION_MODEL_NAME` selects the configured OpenAI model. Do not commit the `.env` file or API credentials.
 
-   R2_ACCOUNT_ID=your-cloudflare-account-id
-   R2_ACCESS_KEY_ID=your-r2-access-key
-   R2_SECRET_ACCESS_KEY=your-r2-secret-key
-   R2_BUCKET_NAME=your-bucket-name
-
-   OPENAI_API_KEY=your-openai-api-key
-   VISION_MODEL_NAME=gpt-4o
-   ```
-
-3. **Install dependencies and run migrations:**
+3. **Install dependencies and migrate the database:**
    ```bash
-   uv sync
+   uv sync --locked
+   cd backend
    uv run alembic upgrade head
    ```
 
-4. **Start the API server:**
+4. **Start the API server** from `backend/`:
    ```bash
-   uv run uvicorn backend.app.main:app --reload --port 8000
+   uv run uvicorn app.main:app --reload --port 8000
    ```
+
+The Compose file starts PostgreSQL only. It does not start the API. The backend needs working database, R2, and OpenAI settings before it can serve requests. Its database URI requires SSL, and the migration code also sends an SSL context. The Compose file does not configure PostgreSQL TLS, so this checkout does not confirm that the Compose database can support the backend. Use a PostgreSQL service that accepts SSL for the API setup. Open the API docs at `http://localhost:8000/docs`.
 
 ### Mobile App Setup
 
@@ -315,11 +305,23 @@ graph TD
 
 ### Docker Deployment
 
+From the repository root, build the API image and start PostgreSQL with Compose:
+
 ```bash
+docker compose up -d postgres
 docker build -t intellipost .
-docker compose up -d
-docker run -p 8000:8000 --env-file .env intellipost
 ```
+
+The Compose file defines the PostgreSQL service only. The backend requires a PostgreSQL service that accepts SSL. The Compose file does not configure TLS.
+
+The API image copies `backend/app` and the virtual environment. It does not copy `alembic.ini` or the Alembic revision files. Run migrations from the host in `backend/`, with the project environment installed.
+
+```bash
+cd backend
+uv run alembic upgrade head
+```
+
+Set the backend settings in your local environment. Set `DATABASE_HOST` to a database address that the API container can reach. Start the API container only after the database schema is ready. The local Compose database and API setup was not runtime-verified.
 
 ## Tech Stack
 
@@ -329,12 +331,12 @@ docker run -p 8000:8000 --env-file .env intellipost
 | State | Provider (MVVM) | Reactive state management |
 | Local DB | Hive | Offline scan cache |
 | Camera | camera, image_picker | Image capture and import |
-| Backend | FastAPI / Python 3.13 | REST API server |
+| Backend | FastAPI / Python 3.12+ (Docker image: 3.13) | REST API server |
 | ORM | SQLModel | Async PostgreSQL ORM |
 | Database | PostgreSQL 17 | Persistent storage |
 | Migrations | Alembic | Schema versioning |
 | Auth | JWT (HS256) + bcrypt | Stateless authentication |
-| AI | Pydantic AI + OpenAI Vision | Structured envelope OCR |
+| AI | Pydantic AI + OpenAI vision model | Structured envelope OCR |
 | Storage | Cloudflare R2 (S3) | Image object storage |
 | Deploy | Docker (multi-stage) | Production containerization |
 
@@ -403,7 +405,7 @@ intellipost/
 │   │   ├── services/
 │   │   │   ├── agent_service.py       # Pydantic AI agent wrapper
 │   │   │   ├── r2_service.py          # boto3 S3 client for Cloudflare R2
-│   │   │   └── pincode_lookup_service.py  # India Post API + DB cache
+│   │   │   └── pincode_lookup_service.py  # Pincode lookup service + DB cache
 │   │   ├── prompts/
 │   │   │   └── prompt.md              # Vision model system prompt
 │   │   └── utils/
@@ -430,6 +432,18 @@ intellipost/
 └── .env                                # Environment variables (not committed)
 ```
 
+## Tests
+
+Run the Flutter tests from the repository root:
+
+```bash
+flutter test
+```
+
+The test files are under `test/`.
+
 ## License
 
 This project is licensed under the MIT License.
+
+This checkout does not include a root `LICENSE` file.
