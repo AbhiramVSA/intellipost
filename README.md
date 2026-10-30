@@ -438,6 +438,6 @@ flutter test
 
 The test files are under `test/`.
 
-## License and project status
+## License
 
-The repository does not include a root `LICENSE` file.
+The original README states that this project is licensed under the MIT License. This checkout does not include a root `LICENSE` file.
