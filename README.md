@@ -286,7 +286,7 @@ graph TD
    uv run uvicorn app.main:app --reload --port 8000
    ```
 
-The Compose file starts PostgreSQL only. It does not start the API. The backend needs working database, R2, and OpenAI settings before it can serve requests. Open the API docs at `http://localhost:8000/docs`.
+The Compose file starts PostgreSQL only. It does not start the API. The backend needs working database, R2, and OpenAI settings before it can serve requests. Its database URI requires SSL, and the migration code also sends an SSL context. The Compose file does not configure PostgreSQL TLS, so this checkout does not confirm that the Compose database can support the backend. Use a PostgreSQL service that accepts SSL for the API setup. Open the API docs at `http://localhost:8000/docs`.
 
 ### Mobile App Setup
 
@@ -312,12 +312,16 @@ docker compose up -d postgres
 docker build -t intellipost .
 ```
 
-The Compose file defines the PostgreSQL service only. Pass the backend settings to the API container with your local environment file, and set `DATABASE_HOST` to a database address reachable from that container. Apply the Alembic migration before serving requests.
+The Compose file defines the PostgreSQL service only. The backend requires a PostgreSQL service that accepts SSL. The Compose file does not configure TLS.
+
+The API image copies `backend/app` and the virtual environment. It does not copy `alembic.ini` or the Alembic revision files. Run migrations from the host in `backend/`, with the project environment installed.
 
 ```bash
-docker run --rm --env-file .env intellipost alembic upgrade head
-docker run --rm --env-file .env -p 8000:8000 intellipost
+cd backend
+uv run alembic upgrade head
 ```
+
+Set the backend settings in your local environment. Set `DATABASE_HOST` to a database address that the API container can reach. Start the API container only after the database schema is ready. The local Compose database and API setup was not runtime-verified.
 
 ## Tech Stack
 
@@ -440,4 +444,6 @@ The test files are under `test/`.
 
 ## License
 
-The original README states that this project is licensed under the MIT License. This checkout does not include a root `LICENSE` file.
+This project is licensed under the MIT License.
+
+This checkout does not include a root `LICENSE` file.
